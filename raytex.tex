@@ -1,0 +1,140 @@
+\newcount \X \newcount \Y \newcount \Ambient \newcount \Falloff
+\newcount \Max \newcount \MaxY
+\newcount \LightX \newcount \LightY \newcount \LightZ
+\newcount \Rad \newcount \RadS \newcount \Sum \newcount \CheckX \newcount \CheckY \newcount \CheckZ
+\newcount \DotOut
+
+\newcommand{\StandardColor}[1]{%
+  \ifnum #1>-1
+    \ifcase #1
+      :\or ,\or !\or =\or o\or e\or H\or \%\or \#%
+      \or @\else .%
+    \fi%
+  \else .\fi
+}
+
+% stolen from https://tex.stackexchange.com/questions/74459/remove-space-before-colorbox
+\newcommand{\reducedstrut}{\vrule width 0pt height .9\ht\strutbox depth .9\dp\strutbox\relax}
+
+
+\newcommand{\AdvancedColor}[1]{%
+  \ifnum #1>-1
+    \ifcase #1
+    \textcolor{gray8}{\colorbox{gray8}{|}}\or \textcolor{gray7}{\colorbox{gray7}{|}}\or \textcolor{gray6}{\colorbox{gray6}{|}}%
+      \or \textcolor{gray5}{\colorbox{gray5}{|}}\or \textcolor{gray4}{\colorbox{gray4}{|}}\or \textcolor{gray3}{\colorbox{gray3}{|}}%
+      \or \textcolor{gray2}{\colorbox{gray2}{|}}\or \textcolor{gray1}{\colorbox{gray1}{|}}\or \textcolor{gray0}{\colorbox{gray0}{|}}%
+      \or \textcolor{black}{\colorbox{black}{|}}\else \textcolor{gray9}{\colorbox{gray9}{|}}%
+    \fi%
+  \else \textcolor{gray9}{\colorbox{gray9}{|}}\fi
+}
+
+\newcommand{\SphereLine}{%
+  \SQUARE{\Rad}{\RadS}
+  \SQUARE{\X}{\CheckX}
+  \DIVIDE{\count1}{2}{\Y}
+  \ADD{\Y}{0.5}{\Y}
+  \SQUARE{\Y}{\CheckY}
+  \ADD{\CheckX}{\CheckY}{\Sum}
+  \MAX{\Sum}{\RadS}{\Sum}
+  \edef\solution{\fpcompare{\RadS >= \Sum}{1}{0}}%
+  \ifnum \solution=1
+    % Normalize
+    \SUBTRACT{\RadS}{\CheckX}{\CheckZ}
+    \SUBTRACT{\CheckZ}{\CheckY}{\CheckZ}
+    \COPY{\calculate{sqrt(\CheckZ)}}{\CheckZ}
+    % Previous line is needed because \SQUAREROOT adds a space for no reason
+    % Unable to use \UNITVECTOR here because it also randomly adds a space (I assume it also uses \SQUAREROOT)
+    % Luckily, the number to divide by is just the radius
+    \DIVIDE{\CheckZ}{\Rad}{\CheckZ}
+    \DIVIDE{\X}{\Rad}{\CheckX}
+    \DIVIDE{\Y}{\Rad}{\CheckY}
+    % Dot Product
+    \MULTIPLY{\CheckX}{\LightX}{\CheckX}
+    \MULTIPLY{\CheckY}{\LightY}{\CheckY}
+    \MULTIPLY{\CheckZ}{\LightZ}{\CheckZ}
+    \ADD{\CheckX}{\CheckY}{\DotOut}
+    \ADD{\DotOut}{\CheckZ}{\DotOut}
+    \edef\solution{\fpcompare{\DotOut < 0}{1}{0}}%
+    \ifnum \solution=1 \MULTIPLY{\DotOut}{-1}{\DotOut}%
+    \else \COPY{0}{\DotOut}\fi
+    % Calcuate intensity
+    \edef\solution{\calculate{round((1-\DotOut^\Falloff-\Ambient/10)*9,0)}}%
+    \Color{\solution}%
+  \else \phantom{.}\fi
+  \let\next=\SphereLine
+  \advance \count1 by 1
+  \ifnum \count1>\MaxY
+    \let\next=\relax
+  \fi
+  \next
+}
+
+\newcommand{\SphereLoop}{%
+  \ADD{\count0}{0.5}{\X}
+  \count1=\Rad
+  \multiply \count1 by -2
+  \SphereLine
+  \let\next=\SphereLoop
+  \advance \count0 by 1
+  \newline
+  \ifnum \count0>\Max
+    \let\next=\relax
+  \fi
+  \next
+}
+
+% translation from https://rosettacode.org/wiki/Draw_a_sphere#Ascii-Art
+\newcommand{\Sphere}[6]{
+  \count0=-#1 \Falloff=#2 \Ambient=#3 \Max=#1 \MaxY=#1
+  \UNITVECTOR(#4, #5, #6)(\LightX, \LightY, \LightZ)
+  \Rad=#1
+  \advance \Max by 1
+  \multiply \MaxY by 2
+  \advance \MaxY by 1
+  \SphereLoop
+}
+
+% Document
+% --------
+\documentclass[a4paper]{article}
+\usepackage{expl3}
+\usepackage{calculator}
+\usepackage[dvipsnames]{xcolor}
+\ExplSyntaxOn
+\cs_new_eq:NN \calculate \fp_eval:n
+\NewExpandableDocumentCommand{\fpcompare}{ m m m }
+ {
+  % #1 = test to perform
+  % #2 = text for the true case
+  % #3 = text for the false case
+  \fp_compare:nTF { #1 } { #2 } { #3 }
+ }
+\ExplSyntaxOff
+\definecolor{gray0}{gray}{0.05}
+\definecolor{gray1}{gray}{0.1}
+\definecolor{gray2}{gray}{0.2}
+\definecolor{gray3}{gray}{0.3}
+\definecolor{gray4}{gray}{0.4}
+\definecolor{gray5}{gray}{0.5}
+\definecolor{gray6}{gray}{0.6}
+\definecolor{gray7}{gray}{0.7}
+\definecolor{gray8}{gray}{0.8}
+\definecolor{gray9}{gray}{0.9}
+
+\setlength{\fboxsep}{0pt}
+\setlength{\parindent}{0pt}
+\setlength{\oddsidemargin}{0pt}
+\setlength{\topmargin}{0pt}
+
+\begin{document}
+\ttfamily
+\setlength{\baselineskip}{10pt}
+\newcommand{\Color}[1]{\StandardColor{#1}}
+{\small
+ \Sphere{10}{2}{4}{30}{30}{-50}
+}
+\renewcommand{\Color}[1]{\AdvancedColor{#1}}
+{\small
+ \Sphere{10}{2}{4}{30}{30}{-50}
+}
+\end{document}
